@@ -40,6 +40,7 @@ class GatewayRoutingAndAuthTest {
     @DynamicPropertySource
     static void props(DynamicPropertyRegistry r) {
         r.add("mspace.jwt.secret", () -> SECRET);
+        r.add("management.server.port", () -> "0");
         r.add("CORE_URI", () -> "http://127.0.0.1:" + CORE.getAddress().getPort());
         r.add("AGENT_URI", () -> "http://127.0.0.1:" + AGENT.getAddress().getPort());
         r.add("WEB_URI", () -> "http://127.0.0.1:" + WEB.getAddress().getPort());
@@ -142,9 +143,11 @@ class GatewayRoutingAndAuthTest {
     }
 
     @Test
-    @DisplayName("health는 토큰 없이 열린다")
-    void health() throws Exception {
-        assertThat(get("/actuator/health", null).statusCode()).isEqualTo(200);
+    @DisplayName("/actuator/health는 토큰 없이 core로 간다 (배포 뒤 core 확인용)")
+    void healthGoesToCore() throws Exception {
+        HttpResponse<String> res = get("/actuator/health", null);
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).startsWith("core");
     }
 
     private HttpResponse<String> get(String path, String token) throws Exception {

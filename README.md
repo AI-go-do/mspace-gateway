@@ -9,10 +9,12 @@ M-space의 **API 게이트웨이**예요. 밖에서 들어오는 요청은 모�
 | 경로 | 보내는 곳 | 로그인 |
 |---|---|---|
 | `/api/agent/**` | agent (비서 채팅, core를 거치지 않음) | 필요 |
-| `/api/**` | core | 필요 (아래 공개 API 빼고) |
+| `/api/**`, `/actuator/health` | core | 필요 (아래 공개 API 빼고) |
 | 그 밖 (`/`, 화면 파일) | web | 필요 없음 |
 
-**로그인 없이 여는 API** (`PublicPaths.java`): `POST /api/auth/email-codes`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/access/verify`(장치 토큰은 core가 확인), `GET /api/rooms`, `/api/rooms/availability`, `/actuator/health`
+**로그인 없이 여는 API** (`PublicPaths.java`): `POST /api/auth/email-codes`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/access/verify`(장치 토큰은 core가 확인), `GET /api/rooms`, `/api/rooms/availability`, `/actuator/health`(core 상태, 배포 확인용)
+
+게이트웨이 자기 상태는 관리 포트 **8001**의 `/actuator/health`예요 (밖으로 열지 않음)
 
 ## 하는 일
 - **인증**: core가 HS256으로 서명한 JWT를 확인해요 (서명, 만료, 발급자 `mspace-core`). 틀리면 401로 막고 core까지 보내지 않아요
@@ -28,12 +30,13 @@ M-space의 **API 게이트웨이**예요. 밖에서 들어오는 요청은 모�
 | `CORE_URI` | `http://core:8080` | |
 | `AGENT_URI` | `http://agent:8091` | |
 | `WEB_URI` | `http://web:80` | |
+| `MANAGEMENT_PORT` | `8001` | 게이트웨이 자기 health |
 
 ## 버전
 Spring Boot **4.0.9** + Spring Cloud **2025.1.4** (Gateway 5.0.4). core(4.1.2)와 다른 이유: Boot 4.1용 Spring Cloud 2026.0이 아직 RC라서 정식 버전을 써요. 2026.0이 정식으로 나오면 맞춰요.
 
 ## 실행
 ```bash
-./mvnw verify                      # 테스트 12개: 토큰 없음·틀린 비밀값·만료·발급자 → 401, 공개 API·agent·web 길
+./mvnw verify                      # 테스트 12개: 토큰 없음·틀린 비밀값·만료·발급자 → 401, 공개 API·agent·web 길, health는 core로
 JWT_SECRET=... ./mvnw spring-boot:run   # :8000
 ```

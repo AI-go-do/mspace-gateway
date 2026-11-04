@@ -24,8 +24,7 @@ final class PublicPaths {
                 post("/api/access/verify"),      // 문 앞 키패드 중계. 장치 토큰은 core가 확인
                 get("/api/rooms"),
                 get("/api/rooms/availability"),
-                get("/actuator/health"),
-                get("/actuator/health/**"));
+                get("/actuator/health"));       // core의 health (배포 확인용)
         return new OrServerWebExchangeMatcher(list);
     }
 
