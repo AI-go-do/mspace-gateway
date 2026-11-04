@@ -1,18 +1,27 @@
 package kr.ac.chosun.mspace.gateway;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.server.authentication.ServerBearerTokenAuthenticationConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.ServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import reactor.core.publisher.Mono;
@@ -44,8 +53,10 @@ class SecurityConfig {
                         .matchers(publicPaths).permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().permitAll())
+                .exceptionHandling(e -> e.authenticationEntryPoint(UNAUTHORIZED))
                 .oauth2ResourceServer(o -> o
                         .bearerTokenConverter(skipOn(publicPaths))
+                        .authenticationEntryPoint(UNAUTHORIZED)
                         .jwt(Customizer.withDefaults()))
                 .build();
     }
@@ -59,9 +70,29 @@ class SecurityConfig {
         NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder.withSecretKey(key)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(props.issuer()));   // 만료(exp) + 발급자(iss)
+        // core(JwtTokens.verify)와 같은 기준: exp 필수, 시계 오차 0초, 발급자(iss) 확인
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                jwt -> jwt.getExpiresAt() != null
+                        ? OAuth2TokenValidatorResult.success()
+                        : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "exp 없음", null)),
+                new JwtTimestampValidator(Duration.ZERO),
+                new JwtIssuerValidator(props.issuer())));
         return decoder;
     }
+
+    /**
+     * 401 응답은 core 오류 형식({code, message})으로 준다. 토큰이 왜 틀렸는지는 밖에 알려 주지 않는다
+     * (기본 응답은 WWW-Authenticate 헤더에 해석 실패 이유를 그대로 싣는다).
+     */
+    private static final ServerAuthenticationEntryPoint UNAUTHORIZED = (exchange, ex) -> {
+        var res = exchange.getResponse();
+        res.setStatusCode(HttpStatus.UNAUTHORIZED);
+        res.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        res.getHeaders().set("WWW-Authenticate", "Bearer");
+        byte[] body = "{\"code\":\"UNAUTHORIZED\",\"message\":\"로그인이 필요해요\"}".getBytes(StandardCharsets.UTF_8);
+        DataBuffer buf = res.bufferFactory().wrap(body);
+        return res.writeWith(Mono.just(buf));
+    };
 
     /** 공개 API에서는 Authorization 헤더를 읽지 않는다. 그 밖에서는 보통의 Bearer 토큰 읽기 */
     private static ServerAuthenticationConverter skipOn(ServerWebExchangeMatcher publicPaths) {

@@ -150,6 +150,60 @@ class GatewayRoutingAndAuthTest {
         assertThat(res.body()).startsWith("core");
     }
 
+    @Test
+    @DisplayName("만료된 지 30초 된 토큰도 401 (core처럼 시계 오차를 봐주지 않는다)")
+    void justExpiredIs401() throws Exception {
+        String token = token(SECRET, "mspace-core", Instant.now().minusSeconds(30));
+        assertThat(get("/api/reservations/me", token).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    @DisplayName("만료 시각(exp)이 없는 토큰은 401")
+    void noExpIs401() throws Exception {
+        assertThat(get("/api/reservations/me", tokenWithoutExp()).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    @DisplayName("401 응답은 {code, message} 형식이고, 토큰이 왜 틀렸는지는 알려 주지 않는다")
+    void unauthorizedBodyHidesReason() throws Exception {
+        HttpResponse<String> res = get("/api/reservations/me", "not-a-jwt");
+        assertThat(res.statusCode()).isEqualTo(401);
+        assertThat(res.body()).contains("\"code\":\"UNAUTHORIZED\"");
+        assertThat(res.headers().firstValue("WWW-Authenticate")).hasValue("Bearer");
+    }
+
+    @Test
+    @DisplayName("공개 GET API는 HEAD로 불러도 토큰 없이 통과한다")
+    void publicHeadWithoutToken() throws Exception {
+        HttpResponse<String> res = send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/rooms"))
+                .method("HEAD", HttpRequest.BodyPublishers.noBody()), null);
+        assertThat(res.statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("밖에서 보낸 X-User-Id 헤더는 지우고 core로 넘긴다")
+    void stripsUserIdHeader() throws Exception {
+        String token = token(SECRET, "mspace-core", Instant.now().plusSeconds(600));
+        HttpResponse<String> res = send(HttpRequest.newBuilder(
+                URI.create("http://127.0.0.1:" + port + "/api/reservations/me")).header("X-User-Id", "1").GET(), token);
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).doesNotContain("uid=");
+    }
+
+    @Test
+    @DisplayName("키패드는 JWT가 아닌 장치 토큰을 Bearer로 보내도 막지 않고 그대로 core에 넘긴다")
+    void deviceTokenPassesThrough() throws Exception {
+        HttpResponse<String> res = post("/api/access/verify", "device-token-not-a-jwt");
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).isEqualTo("core Bearer device-token-not-a-jwt");
+    }
+
+    @Test
+    @DisplayName("DNS 기억 시간을 10초로 줄여, core를 새로 띄워 IP가 바뀌어도 금방 새 주소로 보낸다")
+    void shortDnsCache() {
+        assertThat(HttpClientConfig.DNS_CACHE_MAX_TTL).isEqualTo(java.time.Duration.ofSeconds(10));
+    }
+
     private HttpResponse<String> get(String path, String token) throws Exception {
         return send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET(), token);
     }
@@ -176,12 +230,22 @@ class GatewayRoutingAndAuthTest {
         return jwt.serialize();
     }
 
+    static String tokenWithoutExp() throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer("mspace-core").subject("42").claim("scope", "user").issueTime(new Date()).build();
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        jwt.sign(new MACSigner(SECRET.getBytes(StandardCharsets.UTF_8)));
+        return jwt.serialize();
+    }
+
     static HttpServer fake(String name) {
         try {
             HttpServer s = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             s.createContext("/", ex -> {
                 String auth = ex.getRequestHeaders().getFirst("Authorization");
-                byte[] body = (name + (auth == null ? "" : " " + auth)).getBytes(StandardCharsets.UTF_8);
+                String uid = ex.getRequestHeaders().getFirst("X-User-Id");
+                byte[] body = (name + (auth == null ? "" : " " + auth) + (uid == null ? "" : " uid=" + uid))
+                        .getBytes(StandardCharsets.UTF_8);
                 ex.sendResponseHeaders(200, body.length);
                 ex.getResponseBody().write(body);
                 ex.close();
