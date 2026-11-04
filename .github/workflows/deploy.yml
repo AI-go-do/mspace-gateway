@@ -121,17 +121,19 @@ jobs:
           [ "$(git rev-parse --abbrev-ref HEAD)" = main ] || { echo "~/infra가 main 브랜치가 아님: git checkout main 뒤 다시 배포"; exit 1; }
           # 되돌릴 자리는 'compose 설정 검사를 통과한 마지막 커밋'. 지난 배포가 검사 전에 끊겼으면 HEAD가 검사 안 된 커밋일 수 있어서
           GOOD="$HOME/.mspace-infra-good"
+          # GOOD는 dev·prod가 같이 쓰므로, 있는 .env.* 전부로 compose 설정을 검사한다
+          check() { [ -f ".env.$T" ] || { echo ".env.$T 파일이 없음"; return 1; }; for E in dev prod; do [ -f ".env.$E" ] || continue; docker compose -p "mspace-$E" --env-file ".env.$E" config -q || return 1; done; }
           C="docker compose -p mspace-$T --env-file .env.$T"
           # 기록이 없으면(첫 배포) pull 전에 지금 설정을 검사해 그 커밋을 기록한다. 지금 설정부터 틀리면 pull 없이 멈춘다
           if [ ! -s "$GOOD" ]; then
-            $C config -q || { echo "지금 ~/infra의 compose 설정부터 틀림: 손으로 고친 뒤 다시 배포"; exit 1; }
+            check || { echo "지금 ~/infra의 compose 설정부터 틀림: 손으로 고친 뒤 다시 배포"; exit 1; }
             git rev-parse HEAD > "$GOOD"
           fi
           OLD=$(cat "$GOOD")
           git merge-base --is-ancestor "$OLD" HEAD || { echo "기록된 검사 통과 커밋($OLD)이 main에 없음: $GOOD 를 지우고 다시 배포"; exit 1; }
           git pull --ff-only                                   # compose 설정도 최신으로
           # 이미지 받기 전에 compose 설정(.env 값 포함)을 먼저 검사한다. 틀리면 infra만 되돌리고 멈춘다(지금 서비스는 그대로)
-          $C config -q || { echo "compose 설정 오류: infra를 이전 커밋으로 되돌림(.env 같은 추적 안 하는 파일은 그대로)"; git reset -q --hard "$OLD"; exit 1; }
+          check || { echo "compose 설정 오류: infra를 이전 커밋으로 되돌림(.env 같은 추적 안 하는 파일은 그대로)"; git reset -q --hard "$OLD"; exit 1; }
           git rev-parse HEAD > "$GOOD"                         # 이 커밋은 검사 통과
           $C pull gateway
           $C up -d --no-deps gateway                 # 다른 서비스(core·DB 등)는 건드리지 않는다

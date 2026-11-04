@@ -24,7 +24,10 @@ final class PublicPaths {
                 post("/api/access/verify"),      // 문 앞 키패드 중계. 장치 토큰은 core가 확인
                 get("/api/rooms"),
                 get("/api/rooms/availability"),
-                get("/actuator/health"));       // core의 health (배포 확인용)
+                get("/actuator/health"),        // core의 health (배포 확인용)
+                head("/api/rooms"),             // HEAD는 GET과 같은 응답에서 본문만 뺀 것
+                head("/api/rooms/availability"),
+                head("/actuator/health"));
         return new OrServerWebExchangeMatcher(list);
     }
 
@@ -34,5 +37,9 @@ final class PublicPaths {
 
     private static ServerWebExchangeMatcher get(String path) {
         return new PathPatternParserServerWebExchangeMatcher(path, HttpMethod.GET);
+    }
+
+    private static ServerWebExchangeMatcher head(String path) {
+        return new PathPatternParserServerWebExchangeMatcher(path, HttpMethod.HEAD);
     }
 }

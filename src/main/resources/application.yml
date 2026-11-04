@@ -21,6 +21,12 @@ spring:
     gateway:
       server:
         webflux:
+          # 밖에서 온 X-User-Id는 지운다. 로컬 개발용 헤더라 core·mcp가 설정에 따라 믿을 수 있어서
+          default-filters:
+            - RemoveRequestHeader=X-User-Id
+          httpclient:
+            connect-timeout: 3000       # ms. 서비스가 꺼져 있으면 빨리 실패
+            response-timeout: 90s       # 비서(agent)는 모델 응답을 기다려 오래 걸릴 수 있다
           # 위에서부터가 아니라 order 작은 것부터 맞춰 본다. /api/agent/** 를 /api/** 보다 먼저
           routes:
             # 비서 채팅은 core를 거치지 않고 agent로 바로 (v0.3)
