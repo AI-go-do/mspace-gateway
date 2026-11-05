@@ -136,6 +136,14 @@ class GatewayRoutingAndAuthTest {
     }
 
     @Test
+    @DisplayName("방 현황(GET /api/rooms/status)은 로그인 없이 core로 간다")
+    void roomStatusWithoutToken() throws Exception {
+        HttpResponse<String> res = get("/api/rooms/status", null);
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).startsWith("core");
+    }
+
+    @Test
     @DisplayName("비서 채팅은 core를 거치지 않고 agent로 바로 간다")
     void agentRoute() throws Exception {
         String token = token(SECRET, "mspace-core", Instant.now().plusSeconds(600));

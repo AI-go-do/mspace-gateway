@@ -12,7 +12,7 @@ M-space의 **API 게이트웨이**예요. 밖에서 들어오는 요청은 모�
 | `/api/**`, `/actuator/health` | core | 필요 (아래 공개 API 빼고) |
 | 그 밖 (`/`, 화면 파일) | web | 필요 없음 |
 
-**로그인 없이 여는 API** (`PublicPaths.java`): `POST /api/auth/email-codes`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/access/verify`·`/api/sensor-events`(장치 토큰은 core가 확인), `GET /api/rules`, `/api/rooms`, `/api/rooms/availability`, `/actuator/health`(core 상태, 배포 확인용)
+**로그인 없이 여는 API** (`PublicPaths.java`): `POST /api/auth/email-codes`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/access/verify`·`/api/sensor-events`(장치 토큰은 core가 확인), `GET /api/rules`, `/api/rooms`, `/api/rooms/availability`, `/api/rooms/status`, `/actuator/health`(core 상태, 배포 확인용)
 
 게이트웨이 자기 상태는 관리 포트 **8001**의 `/actuator/health`예요 (밖으로 열지 않음)
 
