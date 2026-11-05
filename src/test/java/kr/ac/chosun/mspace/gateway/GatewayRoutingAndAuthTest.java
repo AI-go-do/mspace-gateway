@@ -120,6 +120,22 @@ class GatewayRoutingAndAuthTest {
     }
 
     @Test
+    @DisplayName("재실·CO2 센서(/api/sensor-events)는 JWT가 아닌 장치 토큰을 그대로 core에 넘긴다")
+    void sensorEventsPassDeviceToken() throws Exception {
+        HttpResponse<String> res = post("/api/sensor-events", "device-token-not-a-jwt");
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).isEqualTo("core Bearer device-token-not-a-jwt");
+    }
+
+    @Test
+    @DisplayName("이용 규칙(GET /api/rules)은 로그인 없이 core로 간다")
+    void rulesWithoutToken() throws Exception {
+        HttpResponse<String> res = get("/api/rules", null);
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).startsWith("core");
+    }
+
+    @Test
     @DisplayName("비서 채팅은 core를 거치지 않고 agent로 바로 간다")
     void agentRoute() throws Exception {
         String token = token(SECRET, "mspace-core", Instant.now().plusSeconds(600));

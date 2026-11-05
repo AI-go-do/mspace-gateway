@@ -22,9 +22,12 @@ final class PublicPaths {
                 post("/api/auth/refresh"),       // 액세스 토큰이 끝났을 때 (만료 토큰을 들고 와도 막지 않는다)
                 post("/api/auth/logout"),
                 post("/api/access/verify"),      // 문 앞 키패드 중계. 장치 토큰은 core가 확인
+                post("/api/sensor-events"),      // 재실·CO2 센서(FR-DEV-101~104). 장치 토큰은 core가 확인 (core #60)
+                get("/api/rules"),               // 이용 규칙, 로그인 전에도 본다 (FR-WEB-003, core #57)
                 get("/api/rooms"),
                 get("/api/rooms/availability"),
                 get("/actuator/health"),        // core의 health (배포 확인용)
+                head("/api/rules"),
                 head("/api/rooms"),             // HEAD는 GET과 같은 응답에서 본문만 뺀 것
                 head("/api/rooms/availability"),
                 head("/actuator/health"));
