@@ -128,6 +128,29 @@ class GatewayRoutingAndAuthTest {
     }
 
     @Test
+    @DisplayName("방 카메라의 지금 예약 조회(GET /api/rooms/{id}/current)는 장치 토큰을 그대로 core에 넘긴다")
+    void roomCurrentPassesDeviceToken() throws Exception {
+        HttpResponse<String> res = get("/api/rooms/2/current", "device-token-not-a-jwt");
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).isEqualTo("core Bearer device-token-not-a-jwt");
+    }
+
+    @Test
+    @DisplayName("방 카메라의 정리 확인(POST /api/rooms/{id}/tidy-checks)은 장치 토큰을 그대로 core에 넘긴다")
+    void tidyChecksPassDeviceToken() throws Exception {
+        HttpResponse<String> res = post("/api/rooms/2/tidy-checks", "device-token-not-a-jwt");
+        assertThat(res.statusCode()).isEqualTo(200);
+        assertThat(res.body()).isEqualTo("core Bearer device-token-not-a-jwt");
+    }
+
+    @Test
+    @DisplayName("방 아래 다른 경로는 공개가 아니라 토큰 없으면 401")
+    void otherRoomSubPathNeedsToken() throws Exception {
+        HttpResponse<String> res = post("/api/rooms/2/current", null);
+        assertThat(res.statusCode()).isEqualTo(401);
+    }
+
+    @Test
     @DisplayName("이용 규칙(GET /api/rules)은 로그인 없이 core로 간다")
     void rulesWithoutToken() throws Exception {
         HttpResponse<String> res = get("/api/rules", null);
