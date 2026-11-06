@@ -136,7 +136,14 @@ jobs:
           check || { echo "compose 설정 오류: infra를 이전 커밋으로 되돌림(.env 같은 추적 안 하는 파일은 그대로)"; git reset -q --hard "$OLD"; exit 1; }
           git rev-parse HEAD > "$GOOD"                         # 이 커밋은 검사 통과
           $C pull gateway
-          $C up -d --no-deps gateway                 # 다른 서비스(core·DB 등)는 건드리지 않는다
+          # 무중단 교체(infra scripts/rollout.sh): 새 컨테이너를 옆에 하나 더 띄워 health 확인 → 옛 것을 끈다.
+          # 새 것이 안 뜨면 새 것만 지우고 실패로 끝나서 옛 것이 계속 서비스한다. 바뀐 게 없는 서비스는 건너뛴다
+          # infra에 아직 rollout.sh가 없으면(합쳐지기 전) 예전처럼 다시 만든다
+          if [ -x scripts/rollout.sh ]; then
+            scripts/rollout.sh "$T" gateway
+          else
+            $C up -d --no-deps gateway                 # 다른 서비스(core·DB 등)는 건드리지 않는다
+          fi
           # .env는 compose 문법이라 bash로 통째로 읽으면(source) 비밀번호의 ; 같은 글자가 명령으로 실행될 수 있다. PORT 한 줄만 읽는다
           PORT=$(grep -E '^PORT=' ".env.$T" | tail -n 1 | cut -d= -f2- | tr -d "\"' \r")
           # 게이트웨이가 받는 주소(BIND_ADDR). 비었거나 0.0.0.0이면 127.0.0.1로 확인한다 (학교 서버는 10.116.64.12)
