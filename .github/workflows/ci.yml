@@ -58,17 +58,22 @@ jobs:
           fi
           ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
 
-      # 2) main으로 가는 PR: SonarQube 품질 게이트(새 코드 커버리지 80% 등)를 통과해야 build가 초록
-      #    qualitygate.wait=true면 스캐너가 서버 판정을 기다렸다가, 실패면 이 단계를 실패시킨다
+      # 2) main으로 가는 PR: 팀 규칙(TEAM.md 7장)대로 "새 코드 커버리지 80% 이상, 중복 3% 이하, 새 버그·취약점 0건"을 통과해야 build가 초록.
+      #    core와 같은 방식(11-06 재웅 결정 "코드 품질은 유하게, 커버리지는 그대로"). 학교 Sonar 기본 게이트(Sonar way)는
+      #    새 이슈 0건·핫스팟 100% 검토까지 요구하는데 공용 계정은 게이트를 바꿀 권한이 없어서, 값을 API로 직접 읽어 판정한다.
+      #    코드 스멜·핫스팟 검토는 대시보드에 남고 막지는 않는다. 토큰이 없으면 확인할 수 없으니 실패시킨다
       - name: SonarQube 품질 게이트 (main)
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_PROJECT: mspace-gateway
+          MIN_COVERAGE: '80'
+          MAX_DUPLICATION: '3'
         run: |
           if [ -z "$SONAR_TOKEN" ]; then
             echo "SONAR_TOKEN이 없어 main 품질 게이트를 확인할 수 없습니다. 저장소 Secrets를 넣어 주세요."
             exit 1
           fi
-          ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300
+          ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+          bash .github/scripts/sonar-team-gate.sh
