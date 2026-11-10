@@ -24,6 +24,7 @@ final class PublicPaths {
                 post("/api/access/verify"),      // 문 앞 키패드 중계. 장치 토큰은 core가 확인
                 post("/api/sensor-events"),      // 재실·CO2 센서(FR-DEV-101~104). 장치 토큰은 core가 확인 (core #60)
                 post("/api/rooms/{roomId}/tidy-checks"), // 방 카메라 정리 확인 결과. 장치 토큰은 core가 확인
+                post("/api/rooms/{roomId}/tidy-photos"), // 방 카메라 정리 확인 사진(core #115). 장치 토큰은 core가 확인
                 get("/api/rules"),               // 이용 규칙, 로그인 전에도 본다 (FR-WEB-003, core #57)
                 get("/api/rooms"),
                 get("/api/rooms/availability"),
