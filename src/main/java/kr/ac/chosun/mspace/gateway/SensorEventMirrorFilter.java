@@ -24,6 +24,7 @@ import reactor.core.publisher.Mono;
  *   <li>장치 토큰 확인은 core가 한다. core가 거절한 값(401 등)은 climate에 보내지 않는다</li>
  *   <li>사본은 기다리지 않는다(장치 응답이 늦어지지 않게). climate가 꺼져 있거나 느려도 로그 한 줄만 남기고 버린다</li>
  *   <li>{@code CLIMATE_MIRROR_URL}이 비면 아무것도 하지 않는다(기본값)</li>
+ *   <li>본문 길이(Content-Length)가 없거나 16KiB보다 크면 사본 없이 그대로 넘긴다. 장치 토큰 확인 전이라 큰 본문을 쌓지 않게</li>
  *   <li>사본 주소는 도커 안쪽 주소다. climate의 받는 길은 게이트웨이 밖으로 열지 않는다</li>
  * </ul>
  * 로그에는 본문을 남기지 않는다(방 번호·값만 들어 있어도 습관으로).
@@ -33,6 +34,8 @@ class SensorEventMirrorFilter implements GlobalFilter, Ordered {
 
     static final String PATH = "/api/sensor-events";
     static final Duration TIMEOUT = Duration.ofSeconds(3);
+    /** 센서 값 한 줄은 수백 바이트. 길이를 안 밝혔거나 이보다 크면 사본 없이 core로만 흘려보낸다(게이트웨이 메모리 보호) */
+    static final long MAX_MIRROR_BYTES = 16 * 1024;
 
     private static final Logger log = LoggerFactory.getLogger(SensorEventMirrorFilter.class);
 
@@ -48,6 +51,10 @@ class SensorEventMirrorFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         var req = exchange.getRequest();
         if (target.isEmpty() || req.getMethod() != HttpMethod.POST || !PATH.equals(req.getPath().value())) {
+            return chain.filter(exchange);
+        }
+        long declared = req.getHeaders().getContentLength();
+        if (declared <= 0 || declared > MAX_MIRROR_BYTES) {
             return chain.filter(exchange);
         }
         return ServerWebExchangeUtils.cacheRequestBody(exchange, cached -> {

@@ -83,6 +83,15 @@ class SensorEventMirrorTest {
     }
 
     @Test
+    @DisplayName("16KiB보다 큰 본문은 core로만 가고 사본은 만들지 않는다")
+    void bigBodyIsNotMirrored() throws Exception {
+        String big = "{\"eventId\":\"e3\",\"pad\":\"" + "x".repeat(20 * 1024) + "\"}";
+        assertThat(post("/api/sensor-events", "good", big).statusCode()).isEqualTo(200);
+        assertThat(CORE_GOT.poll(5, TimeUnit.SECONDS)).isEqualTo(big);
+        assertThat(CLIMATE_GOT.poll(1, TimeUnit.SECONDS)).isNull();
+    }
+
+    @Test
     @DisplayName("센서 말고 다른 장치 길(정리 확인)은 사본을 만들지 않는다")
     void otherDevicePathIsNotMirrored() throws Exception {
         assertThat(post("/api/rooms/2/tidy-checks", "good", "{}").statusCode()).isEqualTo(200);
