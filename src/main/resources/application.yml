@@ -16,6 +16,9 @@ spring:
               - uri: ${CORE_URI:http://core:8080}
             agent:
               - uri: ${AGENT_URI:http://agent:8091}
+            # 이상 탐지·자동 제어 (11/12, 재웅 담당)
+            climate:
+              - uri: ${CLIMATE_URI:http://climate:8095}
             web:
               - uri: ${WEB_URI:http://web:80}
     gateway:
@@ -35,6 +38,12 @@ spring:
               order: 1
               predicates:
                 - Path=/api/agent/**
+            # 방 공기 기준선·예측·기기 제어 (FR-DEV-106). 로그인 필요, 관리자인지는 climate가 core에 물어 가린다
+            - id: climate
+              uri: lb://climate
+              order: 1
+              predicates:
+                - Path=/api/climate/**
             - id: core
               uri: lb://core
               order: 2
@@ -52,6 +61,9 @@ mspace:
   jwt:
     secret: ${JWT_SECRET:}        # core와 같은 값. 비면 켜지지 않는다
     issuer: ${JWT_ISSUER:mspace-core}
+  climate:
+    # 센서 값 사본을 받을 climate 안쪽 주소 (예: http://climate:8095/internal/sensor-events). 비면 사본을 안 보낸다
+    mirror-url: ${CLIMATE_MIRROR_URL:}
 
 management:
   # 게이트웨이 자기 상태는 다른 포트(8001, 밖으로 안 엶)에서. 8000의 /actuator/health는 core로 넘긴다
