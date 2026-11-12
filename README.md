@@ -9,6 +9,7 @@ M-space의 **API 게이트웨이**예요. 밖에서 들어오는 요청은 모�
 | 경로 | 보내는 곳 | 로그인 |
 |---|---|---|
 | `/api/agent/**` | agent (비서 채팅, core를 거치지 않음) | 필요 |
+| `/api/climate/**` | climate (방 공기 기준선·예측·기기 제어, 11/12) | 필요 |
 | `/api/**`, `/actuator/health` | core | 필요 (아래 공개 API 빼고) |
 | 그 밖 (`/`, 화면 파일) | web | 필요 없음 |
 
@@ -21,6 +22,7 @@ M-space의 **API 게이트웨이**예요. 밖에서 들어오는 요청은 모�
 - **인가**: 지금은 "로그인했는가"까지만 봐요. 관리자 화면이 생기면 토큰의 `scope`로 경로를 나눠요
 - **로드밸런싱**: `lb://core`처럼 이름으로 보내요. 같은 서비스를 더 띄우면 `application.yml`의 주소 목록에 한 줄 더하면 돌아가며 보내요
 - core도 지금처럼 토큰을 한 번 더 확인해요 (core 코드는 바꾸지 않음)
+- **센서 값 사본**(`SensorEventMirrorFilter`): `POST /api/sensor-events`를 core가 받아 주면(2xx) 같은 본문을 climate에도 줘요. core가 거절한 값은 안 보내고, 사본은 기다리지 않아 장치 응답이 늦어지지 않아요
 
 ## 설정 (환경 변수)
 | 이름 | 기본값 | 설명 |
@@ -30,6 +32,8 @@ M-space의 **API 게이트웨이**예요. 밖에서 들어오는 요청은 모�
 | `CORE_URI` | `http://core:8080` | |
 | `AGENT_URI` | `http://agent:8091` | |
 | `WEB_URI` | `http://web:80` | |
+| `CLIMATE_URI` | `http://climate:8095` | |
+| `CLIMATE_MIRROR_URL` | (없음) | 센서 값 사본을 받을 climate 안쪽 주소(예: `http://climate:8095/internal/sensor-events`). 비면 사본을 안 보내요 |
 | `MANAGEMENT_PORT` | `8001` | 게이트웨이 자기 health |
 
 ## 버전
